@@ -3,209 +3,179 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monthly Work Log Tracker</title>
+    <title>Enhanced Daily Log Tracker</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
     <div class="container">
         <header class="header">
-            <h1>Monthly Work Log Tracker</h1>
-            <div class="header-controls">
-                <div class="employee-section">
+            <h1>Daily Log Tracker</h1>
+            <div class="employee-section">
+                <div class="form-group">
                     <label for="employeeId" class="form-label">Employee ID</label>
                     <input type="text" id="employeeId" class="form-control" placeholder="Enter Employee ID" required>
                 </div>
-                <div class="month-navigation">
-                    <button type="button" id="prevMonth" class="btn btn--outline btn--sm">‹</button>
-                    <div class="current-month">
-                        <span id="currentMonthYear">August 2025</span>
-                    </div>
-                    <button type="button" id="nextMonth" class="btn btn--outline btn--sm">›</button>
+                <div class="form-group">
+                    <label for="monthYear" class="form-label">Month/Year</label>
+                    <input type="month" id="monthYear" class="form-control" required>
                 </div>
             </div>
         </header>
 
-        <main class="main-layout">
-            <!-- Calendar Section -->
+        <main class="main-content">
+            <!-- Calendar View Section -->
             <section class="calendar-section">
                 <div class="calendar-header">
-                    <h2>Work Calendar</h2>
+                    <h2>Monthly Calendar</h2>
                     <div class="calendar-legend">
                         <div class="legend-item">
-                            <span class="legend-dot work-logged"></span>
-                            <span>Work Logged</span>
+                            <span class="legend-color work"></span>
+                            <span>Work</span>
                         </div>
                         <div class="legend-item">
-                            <span class="legend-dot today-marker"></span>
-                            <span>Today</span>
+                            <span class="legend-color holiday"></span>
+                            <span>Holiday</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color leave"></span>
+                            <span>Leave</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color mixed"></span>
+                            <span>Mixed</span>
                         </div>
                     </div>
                 </div>
-                
-                <div class="calendar-grid">
-                    <div class="calendar-weekdays">
-                        <div class="weekday">Sun</div>
-                        <div class="weekday">Mon</div>
-                        <div class="weekday">Tue</div>
-                        <div class="weekday">Wed</div>
-                        <div class="weekday">Thu</div>
-                        <div class="weekday">Fri</div>
-                        <div class="weekday">Sat</div>
+                <div id="calendar" class="calendar-grid"></div>
+            </section>
+
+            <!-- Project Entry Section -->
+            <section class="project-entry-section">
+                <div class="section-header">
+                    <h2>Daily Entry</h2>
+                    <div class="selected-date">
+                        Date: <span id="selectedDate">Select a date</span>
                     </div>
-                    <div id="calendarDates" class="calendar-dates">
-                        <!-- Calendar dates will be generated here -->
+                </div>
+                <form id="projectForm" class="project-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="projectSelection" class="form-label">Project Selection *</label>
+                            <select id="projectSelection" class="form-control" required>
+                                <option value="">Select a project...</option>
+                            </select>
+                        </div>
+                        <div class="form-group" id="subCodeGroup">
+                            <label for="subCodeSelection" class="form-label">Sub Code *</label>
+                            <select id="subCodeSelection" class="form-control" disabled required>
+                                <option value="">Select sub code...</option>
+                            </select>
+                        </div>
                     </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="chargeCode" class="form-label">Charge Code</label>
+                            <input type="text" id="chargeCode" class="form-control" readonly placeholder="Auto-generated">
+                        </div>
+                        <div class="form-group">
+                            <label for="hoursSpent" class="form-label">Hours Spent *</label>
+                            <input type="number" id="hoursSpent" class="form-control" min="0" max="24" step="0.25" placeholder="0.00" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="comments" class="form-label">Comments <span id="commentsRequired" class="required-indicator hidden">*</span></label>
+                        <textarea id="comments" class="form-control" rows="3" maxlength="500" placeholder="Enter any additional notes or comments..."></textarea>
+                        <div class="character-count">
+                            <span id="commentCount">0</span>/500 characters
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn--primary">Add Entry</button>
+                        <button type="button" id="clearForm" class="btn btn--secondary">Clear Form</button>
+                    </div>
+                </form>
+            </section>
+
+            <!-- Daily Entries Section -->
+            <section class="project-list-section">
+                <div class="section-header">
+                    <h2>Daily Entries</h2>
+                    <div class="daily-summary">
+                        <div class="summary-item">
+                            Total Hours: <span id="totalHours">0.00</span>
+                        </div>
+                        <div class="summary-item">
+                            Work Hours: <span id="workHours">0.00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="emptyState" class="empty-state">
+                    <p>No entries for the selected date. Use the form above to add entries.</p>
+                </div>
+
+                <div id="projectTable" class="project-table hidden">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Type</th>
+                                <th>Project ID</th>
+                                <th>Project Title</th>
+                                <th>Sub Code</th>
+                                <th>Charge Code</th>
+                                <th>Hours</th>
+                                <th>Comments</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="projectTableBody">
+                        </tbody>
+                    </table>
                 </div>
             </section>
 
-            <!-- Daily Entry Panel -->
-            <section class="daily-entry-section">
-                <div class="daily-header">
-                    <h2>Daily Entry</h2>
-                    <div id="selectedDateDisplay" class="selected-date">
-                        Select a date to log work
+            <!-- Monthly Summary Section -->
+            <section class="monthly-summary-section">
+                <h2>Monthly Summary</h2>
+                <div class="summary-grid">
+                    <div class="summary-card">
+                        <h3>Days Logged</h3>
+                        <div class="summary-value" id="daysLogged">0</div>
+                    </div>
+                    <div class="summary-card">
+                        <h3>Working Days</h3>
+                        <div class="summary-value" id="workingDays">0</div>
+                    </div>
+                    <div class="summary-card">
+                        <h3>Holiday Days</h3>
+                        <div class="summary-value" id="holidayDays">0</div>
+                    </div>
+                    <div class="summary-card">
+                        <h3>Leave Days</h3>
+                        <div class="summary-value" id="leaveDays">0</div>
+                    </div>
+                    <div class="summary-card">
+                        <h3>Total Hours</h3>
+                        <div class="summary-value" id="monthlyTotalHours">0.00</div>
+                    </div>
+                    <div class="summary-card">
+                        <h3>Productive Hours</h3>
+                        <div class="summary-value" id="productiveHours">0.00</div>
                     </div>
                 </div>
 
-                <div id="entryForm" class="entry-form hidden">
-                    <form id="projectForm" class="project-form">
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="projectSelection" class="form-label">Project Selection *</label>
-                                <select id="projectSelection" class="form-control" required>
-                                    <option value="">Select a project...</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label for="subCodeSelection" class="form-label">Sub Code *</label>
-                                <select id="subCodeSelection" class="form-control" disabled required>
-                                    <option value="">Select sub code...</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="chargeCode" class="form-label">Charge Code</label>
-                                <input type="text" id="chargeCode" class="form-control" readonly placeholder="Auto-generated">
-                            </div>
-                            <div class="form-group">
-                                <label for="hoursSpent" class="form-label">Hours Spent *</label>
-                                <input type="number" id="hoursSpent" class="form-control" min="0" max="24" step="0.25" placeholder="0.00" required>
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="comments" class="form-label">Comments</label>
-                            <textarea id="comments" class="form-control" rows="3" maxlength="500" placeholder="Enter any additional notes or comments..."></textarea>
-                            <div class="character-count">
-                                <span id="commentCount">0</span>/500 characters
-                            </div>
-                        </div>
-
-                        <div class="form-actions">
-                            <button type="submit" class="btn btn--primary">Add Project</button>
-                            <button type="button" id="clearForm" class="btn btn--secondary">Clear Form</button>
-                        </div>
-                    </form>
-
-                    <!-- Daily Projects List -->
-                    <div class="daily-projects">
-                        <div class="section-header">
-                            <h3>Projects for Selected Date</h3>
-                            <div class="daily-total">
-                                Total: <span id="dailyTotalHours">0.00</span> hrs
-                            </div>
-                        </div>
-                        
-                        <div id="dailyEmptyState" class="empty-state">
-                            <p>No projects logged for this date.</p>
-                        </div>
-
-                        <div id="dailyProjectList" class="project-list hidden">
-                            <!-- Daily projects will be rendered here -->
-                        </div>
-                    </div>
+                <div class="export-section">
+                    <button id="downloadExcel" class="btn btn--primary btn--lg" disabled>
+                        <span class="btn-icon">📊</span>
+                        Download Excel Report
+                    </button>
                 </div>
             </section>
         </main>
-
-        <!-- Monthly Summary Dashboard -->
-        <section class="summary-dashboard">
-            <h2>Monthly Summary</h2>
-            <div class="summary-grid">
-                <div class="summary-card">
-                    <div class="summary-value" id="totalDaysWorked">0</div>
-                    <div class="summary-label">Days Worked</div>
-                </div>
-                <div class="summary-card">
-                    <div class="summary-value" id="totalHoursMonth">0.00</div>
-                    <div class="summary-label">Total Hours</div>
-                </div>
-                <div class="summary-card">
-                    <div class="summary-value" id="averageHours">0.00</div>
-                    <div class="summary-label">Avg Hours/Day</div>
-                </div>
-                <div class="summary-card">
-                    <div class="summary-value" id="totalProjects">0</div>
-                    <div class="summary-label">Project Entries</div>
-                </div>
-                <div class="summary-card">
-                    <div class="summary-value" id="uniqueProjects">0</div>
-                    <div class="summary-label">Unique Projects</div>
-                </div>
-                <div class="summary-card progress-card">
-                    <div class="summary-value" id="monthProgress">0%</div>
-                    <div class="summary-label">Month Progress</div>
-                </div>
-            </div>
-
-            <!-- Export Options -->
-            <div class="export-toolbar">
-                <h3>Export Options</h3>
-                <div class="export-buttons">
-                    <button id="exportDaily" class="btn btn--secondary" disabled>
-                        <span class="btn-icon">📄</span>
-                        Export Selected Day
-                    </button>
-                    <button id="exportMonth" class="btn btn--primary" disabled>
-                        <span class="btn-icon">📊</span>
-                        Export Monthly Report
-                    </button>
-                    <button id="exportRange" class="btn btn--outline" disabled>
-                        <span class="btn-icon">📅</span>
-                        Export Date Range
-                    </button>
-                </div>
-            </div>
-        </section>
-    </div>
-
-    <!-- Date Range Modal -->
-    <div id="dateRangeModal" class="modal hidden">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Export Date Range</h3>
-                <button type="button" id="closeDateRange" class="modal-close">×</button>
-            </div>
-            <div class="modal-body">
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="startDate" class="form-label">Start Date</label>
-                        <input type="date" id="startDate" class="form-control" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="endDate" class="form-label">End Date</label>
-                        <input type="date" id="endDate" class="form-control" required>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" id="cancelRange" class="btn btn--secondary">Cancel</button>
-                <button type="button" id="exportRangeConfirm" class="btn btn--primary">Export Range</button>
-            </div>
-        </div>
     </div>
 
     <!-- Success/Error Messages -->
