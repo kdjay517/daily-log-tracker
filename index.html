@@ -3,19 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Daily Project Log Tracker</title>
+    <title>Enhanced Daily Log Tracker</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
     <div class="container">
-        <!-- Header Section -->
         <header class="header">
-            <h1>Daily Project Log Tracker</h1>
-            <div class="employee-info">
+            <h1>Daily Log Tracker</h1>
+            <div class="employee-section">
                 <div class="form-group">
-                    <label for="employeeId" class="form-label">Employee ID *</label>
-                    <input type="text" id="employeeId" class="form-control" placeholder="Enter your Employee ID" required>
+                    <label for="employeeId" class="form-label">Employee ID</label>
+                    <input type="text" id="employeeId" class="form-control" placeholder="Enter Employee ID" required>
                 </div>
                 <div class="form-group">
                     <label for="logDate" class="form-label">Date</label>
@@ -24,106 +23,93 @@
             </div>
         </header>
 
-        <!-- Project Entry Section -->
-        <section class="project-entry-section">
-            <div class="card">
-                <div class="card__header">
-                    <h2>Add Project Entry</h2>
-                </div>
-                <div class="card__body">
-                    <form id="projectForm" class="project-form">
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="projectName" class="form-label">Project Name *</label>
-                                <input type="text" id="projectName" class="form-control" placeholder="Enter project name" maxlength="100" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="chargeCode" class="form-label">Charge Code *</label>
-                                <input type="text" id="chargeCode" class="form-control" placeholder="Enter charge code" maxlength="20" required>
-                            </div>
+        <main class="main-content">
+            <section class="project-entry-section">
+                <h2>Project Entry</h2>
+                <form id="projectForm" class="project-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="projectSelection" class="form-label">Project Selection *</label>
+                            <select id="projectSelection" class="form-control" required>
+                                <option value="">Select a project...</option>
+                            </select>
                         </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="hoursSpent" class="form-label">Hours Spent *</label>
-                                <input type="number" id="hoursSpent" class="form-control" placeholder="0.0" min="0" max="24" step="0.25" required>
-                            </div>
-                            <div class="form-group comments-group">
-                                <label for="comments" class="form-label">Comments</label>
-                                <textarea id="comments" class="form-control" placeholder="Add any additional comments..." rows="3" maxlength="500"></textarea>
-                            </div>
+                        <div class="form-group">
+                            <label for="subCodeSelection" class="form-label">Sub Code *</label>
+                            <select id="subCodeSelection" class="form-control" disabled required>
+                                <option value="">Select sub code...</option>
+                            </select>
                         </div>
-                        <div class="form-actions">
-                            <button type="submit" class="btn btn--primary">Add Project</button>
-                            <button type="button" id="clearForm" class="btn btn--secondary">Clear Form</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </section>
+                    </div>
 
-        <!-- Project List Section -->
-        <section class="project-list-section">
-            <div class="card">
-                <div class="card__header">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="chargeCode" class="form-label">Charge Code</label>
+                            <input type="text" id="chargeCode" class="form-control" readonly placeholder="Auto-generated">
+                        </div>
+                        <div class="form-group">
+                            <label for="hoursSpent" class="form-label">Hours Spent *</label>
+                            <input type="number" id="hoursSpent" class="form-control" min="0" max="24" step="0.25" placeholder="0.00" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="comments" class="form-label">Comments</label>
+                        <textarea id="comments" class="form-control" rows="3" maxlength="500" placeholder="Enter any additional notes or comments..."></textarea>
+                        <div class="character-count">
+                            <span id="commentCount">0</span>/500 characters
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn--primary">Add Project</button>
+                        <button type="button" id="clearForm" class="btn btn--secondary">Clear Form</button>
+                    </div>
+                </form>
+            </section>
+
+            <section class="project-list-section">
+                <div class="section-header">
                     <h2>Project Entries</h2>
                     <div class="total-hours">
-                        <span>Total Hours: </span>
-                        <span id="totalHours" class="total-value">0.00</span>
+                        Total Hours: <span id="totalHours">0.00</span>
                     </div>
                 </div>
-                <div class="card__body">
-                    <div id="emptyState" class="empty-state">
-                        <p>No projects added yet. Add your first project above to get started.</p>
-                    </div>
-                    <div id="projectTable" class="project-table hidden">
-                        <table class="table">
-                            <thead>
-                                <tr>
-                                    <th>Project Name</th>
-                                    <th>Charge Code</th>
-                                    <th>Hours</th>
-                                    <th>Comments</th>
-                                    <th>Action</th>
-                                </tr>
-                            </thead>
-                            <tbody id="projectTableBody">
-                            </tbody>
-                        </table>
-                    </div>
+
+                <div id="emptyState" class="empty-state">
+                    <p>No projects added yet. Use the form above to add your first project entry.</p>
                 </div>
-            </div>
-        </section>
 
-        <!-- Export Section -->
-        <section class="export-section">
-            <div class="export-actions">
-                <button id="downloadExcel" class="btn btn--primary btn--lg">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                        <polyline points="7,10 12,15 17,10"></polyline>
-                        <line x1="12" y1="15" x2="12" y2="3"></line>
-                    </svg>
-                    Download Excel
-                </button>
-            </div>
-        </section>
+                <div id="projectTable" class="project-table hidden">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Project ID</th>
+                                <th>Project Title</th>
+                                <th>Sub Code</th>
+                                <th>Charge Code</th>
+                                <th>Hours</th>
+                                <th>Comments</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="projectTableBody">
+                        </tbody>
+                    </table>
+                </div>
 
-        <!-- Success/Error Messages -->
-        <div id="messageContainer" class="message-container"></div>
+                <div class="export-section">
+                    <button id="downloadExcel" class="btn btn--primary btn--lg" disabled>
+                        <span class="btn-icon">📊</span>
+                        Download Excel
+                    </button>
+                </div>
+            </section>
+        </main>
     </div>
 
-    <!-- Confirmation Modal -->
-    <div id="confirmModal" class="modal hidden">
-        <div class="modal-content">
-            <h3>Confirm Delete</h3>
-            <p>Are you sure you want to delete this project entry?</p>
-            <div class="modal-actions">
-                <button id="confirmDelete" class="btn btn--primary">Delete</button>
-                <button id="cancelDelete" class="btn btn--secondary">Cancel</button>
-            </div>
-        </div>
-    </div>
-    <div id="modalOverlay" class="modal-overlay hidden"></div>
+    <!-- Success/Error Messages -->
+    <div id="messageContainer" class="message-container"></div>
 
     <script src="app.js"></script>
 </body>
