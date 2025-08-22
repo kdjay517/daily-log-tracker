@@ -1,5 +1,5 @@
-// Monthly Work Log Tracker Application
-class MonthlyWorkLogTracker {
+// Enhanced Daily Log Tracker Application with Holiday/Leave Support
+class EnhancedDailyLogTracker {
     constructor() {
         // Project data from the provided JSON
         this.projectData = [
@@ -30,56 +30,50 @@ class MonthlyWorkLogTracker {
             }
         ];
 
-        this.currentDate = new Date();
+        // Special entry types for Holiday and Leave
+        this.specialEntryTypes = [
+            {
+                "projectId": "HOLIDAY",
+                "projectTitle": "Holiday",
+                "subCode": null,
+                "chargeCode": "N/A",
+                "commentsRequired": true,
+                "color": "orange"
+            },
+            {
+                "projectId": "LEAVE",
+                "projectTitle": "Leave", 
+                "subCode": null,
+                "chargeCode": "N/A",
+                "commentsRequired": true,
+                "color": "red"
+            }
+        ];
+
+        // Monthly log entries - organized by date
+        this.monthlyLogs = {};
         this.selectedDate = null;
-        this.monthlyData = {};
-        this.currentMonth = this.currentDate.getMonth();
-        this.currentYear = this.currentDate.getFullYear();
+        this.currentMonth = null;
     }
 
     init() {
-        console.log('Initializing Monthly Work Log Tracker...');
-        this.loadEmployeeData();
+        console.log('Initializing Enhanced Daily Log Tracker...');
+        this.setCurrentMonth();
         this.populateProjectDropdown();
         this.bindEventListeners();
         this.renderCalendar();
-        this.updateMonthlyStats();
         this.updateUI();
         console.log('Initialization complete');
     }
 
-    loadEmployeeData() {
-        const savedEmployeeId = localStorage.getItem('employeeId');
-        if (savedEmployeeId) {
-            const employeeInput = document.getElementById('employeeId');
-            if (employeeInput) {
-                employeeInput.value = savedEmployeeId;
-            }
-        }
-        this.loadMonthlyData();
-    }
-
-    loadMonthlyData() {
-        const monthKey = `${this.currentYear}-${String(this.currentMonth + 1).padStart(2, '0')}`;
-        const savedData = localStorage.getItem(`worklog_${monthKey}`);
-        if (savedData) {
-            this.monthlyData = JSON.parse(savedData);
-        } else {
-            this.monthlyData = {};
-        }
-        console.log('Loaded monthly data for', monthKey, this.monthlyData);
-    }
-
-    saveMonthlyData() {
-        const monthKey = `${this.currentYear}-${String(this.currentMonth + 1).padStart(2, '0')}`;
-        localStorage.setItem(`worklog_${monthKey}`, JSON.stringify(this.monthlyData));
-        console.log('Saved monthly data for', monthKey);
-    }
-
-    saveEmployeeData() {
-        const employeeId = document.getElementById('employeeId').value.trim();
-        if (employeeId) {
-            localStorage.setItem('employeeId', employeeId);
+    setCurrentMonth() {
+        const monthInput = document.getElementById('monthYear');
+        if (monthInput) {
+            const today = new Date();
+            const monthString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+            monthInput.value = monthString;
+            this.currentMonth = monthString;
+            console.log('Month set to:', monthString);
         }
     }
 
@@ -90,6 +84,8 @@ class MonthlyWorkLogTracker {
             return;
         }
 
+        console.log('Populating project dropdown...');
+        
         // Get unique projects
         const uniqueProjects = {};
         this.projectData.forEach(item => {
@@ -101,38 +97,69 @@ class MonthlyWorkLogTracker {
             }
         });
 
-        // Sort projects alphabetically
+        // Sort projects alphabetically by display text
         const sortedProjects = Object.values(uniqueProjects).sort((a, b) => 
             `${a.projectId} - ${a.projectTitle}`.localeCompare(`${b.projectId} - ${b.projectTitle}`)
         );
 
-        // Clear existing options
+        // Clear existing options (except the default)
         projectSelect.innerHTML = '<option value="">Select a project...</option>';
 
-        // Add project options
+        // Add regular project options
         sortedProjects.forEach(project => {
             const option = document.createElement('option');
             option.value = project.projectId;
             option.textContent = `${project.projectId} - ${project.projectTitle}`;
             option.setAttribute('data-title', project.projectTitle);
+            option.setAttribute('data-type', 'work');
             projectSelect.appendChild(option);
         });
 
-        console.log('Project dropdown populated with', sortedProjects.length, 'projects');
+        // Add special entry types (Holiday and Leave)
+        this.specialEntryTypes.forEach(special => {
+            const option = document.createElement('option');
+            option.value = special.projectId;
+            option.textContent = special.projectTitle;
+            option.setAttribute('data-title', special.projectTitle);
+            option.setAttribute('data-type', 'special');
+            projectSelect.appendChild(option);
+        });
+
+        console.log('Project dropdown populated with', sortedProjects.length + this.specialEntryTypes.length, 'options');
     }
 
     populateSubCodeDropdown(selectedProjectId) {
         const subCodeSelect = document.getElementById('subCodeSelection');
-        if (!subCodeSelect) {
-            console.error('Sub code selection element not found');
+        const subCodeGroup = document.getElementById('subCodeGroup');
+        
+        if (!subCodeSelect || !subCodeGroup) {
+            console.error('Sub code elements not found');
             return;
         }
 
         console.log('Populating sub code dropdown for project:', selectedProjectId);
+        
+        // Check if this is a special entry type
+        const isSpecialEntry = this.specialEntryTypes.some(special => special.projectId === selectedProjectId);
+        
+        if (isSpecialEntry) {
+            // Hide sub code field for Holiday/Leave
+            subCodeGroup.classList.add('hidden');
+            subCodeSelect.disabled = true;
+            subCodeSelect.removeAttribute('required');
+            subCodeSelect.value = '';
+            this.updateChargeCode(selectedProjectId, null);
+            return;
+        }
 
+        // Show sub code field for regular projects
+        subCodeGroup.classList.remove('hidden');
+        subCodeSelect.setAttribute('required', 'required');
+        
         if (!selectedProjectId) {
             subCodeSelect.innerHTML = '<option value="">Select sub code...</option>';
             subCodeSelect.disabled = true;
+            subCodeSelect.value = '';
             this.updateChargeCode('', '');
             return;
         }
@@ -141,6 +168,7 @@ class MonthlyWorkLogTracker {
         const subCodes = this.projectData
             .filter(item => item.projectId === selectedProjectId)
             .map(item => item.subCode)
+            .filter((value, index, self) => self.indexOf(value) === index) // Remove duplicates
             .sort();
 
         console.log('Found sub codes:', subCodes);
@@ -156,7 +184,7 @@ class MonthlyWorkLogTracker {
         });
 
         subCodeSelect.disabled = false;
-        console.log('Sub code dropdown populated with', subCodes.length, 'options');
+        console.log('Sub code dropdown enabled with', subCodes.length, 'options');
     }
 
     updateChargeCode(projectId, subCode) {
@@ -166,42 +194,200 @@ class MonthlyWorkLogTracker {
             return;
         }
         
-        if (projectId && subCode) {
+        // Check if this is a special entry type
+        const isSpecialEntry = this.specialEntryTypes.some(special => special.projectId === projectId);
+        
+        if (isSpecialEntry) {
+            chargeCodeInput.value = 'N/A';
+            chargeCodeInput.classList.add('na-field');
+            console.log('Charge code set to N/A for special entry');
+        } else if (projectId && subCode) {
             const chargeCode = `${projectId}-${subCode}`;
             chargeCodeInput.value = chargeCode;
+            chargeCodeInput.classList.remove('na-field');
             console.log('Charge code updated to:', chargeCode);
         } else {
             chargeCodeInput.value = '';
+            chargeCodeInput.classList.remove('na-field');
         }
+    }
+
+    updateCommentsRequirement(projectId) {
+        const commentsField = document.getElementById('comments');
+        const commentsLabel = document.querySelector('label[for="comments"]');
+        const requiredIndicator = document.getElementById('commentsRequired');
+        
+        const isSpecialEntry = this.specialEntryTypes.some(special => special.projectId === projectId);
+        
+        if (isSpecialEntry) {
+            commentsField.setAttribute('required', 'required');
+            requiredIndicator.classList.remove('hidden');
+            commentsField.placeholder = 'Please specify the reason/type (required for Holiday/Leave)';
+            console.log('Comments made required for special entry');
+        } else {
+            commentsField.removeAttribute('required');
+            requiredIndicator.classList.add('hidden');
+            commentsField.placeholder = 'Enter any additional notes or comments...';
+        }
+    }
+
+    renderCalendar() {
+        const calendarGrid = document.getElementById('calendar');
+        if (!calendarGrid || !this.currentMonth) {
+            console.error('Calendar grid or current month not available');
+            return;
+        }
+
+        const [year, month] = this.currentMonth.split('-').map(Number);
+        const firstDay = new Date(year, month - 1, 1);
+        const lastDay = new Date(year, month, 0);
+        const startDate = new Date(firstDay);
+        startDate.setDate(startDate.getDate() - firstDay.getDay());
+
+        calendarGrid.innerHTML = '';
+
+        // Add day headers
+        const dayHeaders = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        dayHeaders.forEach(day => {
+            const dayElement = document.createElement('div');
+            dayElement.className = 'calendar-day calendar-day-header';
+            dayElement.textContent = day;
+            calendarGrid.appendChild(dayElement);
+        });
+
+        // Add calendar days
+        for (let i = 0; i < 42; i++) {
+            const currentDate = new Date(startDate);
+            currentDate.setDate(startDate.getDate() + i);
+            
+            const dayElement = document.createElement('div');
+            dayElement.className = 'calendar-day';
+            dayElement.textContent = currentDate.getDate();
+            dayElement.setAttribute('data-date', this.formatDate(currentDate));
+            dayElement.setAttribute('tabindex', '0'); // Make focusable for accessibility
+            
+            // Check if day is in current month
+            if (currentDate.getMonth() !== month - 1) {
+                dayElement.classList.add('other-month');
+            }
+            
+            // Check for entries on this date
+            const dateKey = this.formatDate(currentDate);
+            const dayEntries = this.monthlyLogs[dateKey];
+            
+            if (dayEntries && dayEntries.length > 0) {
+                dayElement.classList.add('has-entries');
+                
+                // Determine entry types for color coding
+                const entryTypes = dayEntries.map(entry => entry.entryType);
+                const uniqueTypes = [...new Set(entryTypes)];
+                
+                if (uniqueTypes.length > 1) {
+                    dayElement.classList.add('mixed-entry');
+                } else {
+                    switch (uniqueTypes[0]) {
+                        case 'work':
+                            dayElement.classList.add('work-entry');
+                            break;
+                        case 'holiday':
+                            dayElement.classList.add('holiday-entry');
+                            break;
+                        case 'leave':
+                            dayElement.classList.add('leave-entry');
+                            break;
+                    }
+                }
+            }
+            
+            // Check if this is the selected date
+            if (this.selectedDate && dateKey === this.selectedDate) {
+                dayElement.classList.add('selected');
+            }
+            
+            // Add click handler for date selection
+            const clickHandler = () => {
+                if (!dayElement.classList.contains('other-month')) {
+                    this.selectDate(dateKey);
+                }
+            };
+            
+            dayElement.addEventListener('click', clickHandler);
+            dayElement.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    clickHandler();
+                }
+            });
+            
+            calendarGrid.appendChild(dayElement);
+        }
+
+        console.log('Calendar rendered for', this.currentMonth);
+    }
+
+    selectDate(dateString) {
+        this.selectedDate = dateString;
+        this.updateSelectedDateDisplay();
+        this.renderCalendar(); // Re-render to update selection
+        this.updateDailyEntries();
+        this.clearForm();
+        console.log('Selected date:', dateString);
+    }
+
+    updateSelectedDateDisplay() {
+        const selectedDateElement = document.getElementById('selectedDate');
+        if (selectedDateElement && this.selectedDate) {
+            const date = new Date(this.selectedDate + 'T00:00:00');
+            const formattedDate = date.toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            });
+            selectedDateElement.textContent = formattedDate;
+        }
+    }
+
+    formatDate(date) {
+        return date.toISOString().split('T')[0];
     }
 
     bindEventListeners() {
         console.log('Binding event listeners...');
 
-        // Month navigation
-        const prevMonthBtn = document.getElementById('prevMonth');
-        const nextMonthBtn = document.getElementById('nextMonth');
-        
-        if (prevMonthBtn) {
-            prevMonthBtn.addEventListener('click', () => this.navigateToPreviousMonth());
-        }
-        if (nextMonthBtn) {
-            nextMonthBtn.addEventListener('click', () => this.navigateToNextMonth());
+        // Month/Year selection change
+        const monthInput = document.getElementById('monthYear');
+        if (monthInput) {
+            monthInput.addEventListener('change', (e) => {
+                this.currentMonth = e.target.value;
+                this.selectedDate = null;
+                this.renderCalendar();
+                this.updateMonthlyUI();
+                console.log('Month changed to:', this.currentMonth);
+            });
         }
 
-        // Project selection - Fixed event handling
+        // Project selection change
         const projectSelect = document.getElementById('projectSelection');
         if (projectSelect) {
             projectSelect.addEventListener('change', (e) => {
                 console.log('Project selection changed to:', e.target.value);
                 const selectedProjectId = e.target.value;
                 this.populateSubCodeDropdown(selectedProjectId);
-                // Clear charge code when project changes
-                this.updateChargeCode('', '');
+                this.updateCommentsRequirement(selectedProjectId);
+                
+                // Clear sub code selection when project changes
+                const subCodeSelect = document.getElementById('subCodeSelection');
+                if (subCodeSelect) {
+                    subCodeSelect.value = '';
+                }
+                
+                // Update charge code
+                this.updateChargeCode(selectedProjectId, '');
             });
         }
 
-        // Sub code selection - Fixed event handling
+        // Sub code selection change
         const subCodeSelect = document.getElementById('subCodeSelection');
         if (subCodeSelect) {
             subCodeSelect.addEventListener('change', (e) => {
@@ -222,7 +408,7 @@ class MonthlyWorkLogTracker {
             });
         }
 
-        // Clear form
+        // Clear form button
         const clearBtn = document.getElementById('clearForm');
         if (clearBtn) {
             clearBtn.addEventListener('click', () => {
@@ -231,24 +417,16 @@ class MonthlyWorkLogTracker {
             });
         }
 
-        // Export buttons
-        document.getElementById('exportDaily')?.addEventListener('click', () => this.exportDaily());
-        document.getElementById('exportMonth')?.addEventListener('click', () => this.exportMonthly());
-        document.getElementById('exportRange')?.addEventListener('click', () => this.showDateRangeModal());
-
-        // Employee ID save
-        const employeeIdInput = document.getElementById('employeeId');
-        if (employeeIdInput) {
-            employeeIdInput.addEventListener('blur', () => {
-                this.saveEmployeeData();
-                this.updateExportButtons();
-            });
-            employeeIdInput.addEventListener('input', () => {
-                this.updateExportButtons();
+        // Excel download
+        const downloadBtn = document.getElementById('downloadExcel');
+        if (downloadBtn) {
+            downloadBtn.addEventListener('click', () => {
+                console.log('Download Excel clicked');
+                this.downloadExcel();
             });
         }
 
-        // Comments character count
+        // Character count for comments
         const commentsField = document.getElementById('comments');
         if (commentsField) {
             commentsField.addEventListener('input', (e) => {
@@ -256,191 +434,15 @@ class MonthlyWorkLogTracker {
             });
         }
 
-        // Date range modal
-        this.bindModalEventListeners();
-
-        console.log('Event listeners bound successfully');
-    }
-
-    bindModalEventListeners() {
-        const dateRangeModal = document.getElementById('dateRangeModal');
-        const closeDateRange = document.getElementById('closeDateRange');
-        const cancelRange = document.getElementById('cancelRange');
-        const exportRangeConfirm = document.getElementById('exportRangeConfirm');
-
-        if (closeDateRange) {
-            closeDateRange.addEventListener('click', () => this.hideDateRangeModal());
-        }
-        if (cancelRange) {
-            cancelRange.addEventListener('click', () => this.hideDateRangeModal());
-        }
-        if (exportRangeConfirm) {
-            exportRangeConfirm.addEventListener('click', () => this.exportDateRange());
-        }
-        if (dateRangeModal) {
-            dateRangeModal.addEventListener('click', (e) => {
-                if (e.target === dateRangeModal) {
-                    this.hideDateRangeModal();
-                }
+        // Employee ID validation
+        const employeeIdField = document.getElementById('employeeId');
+        if (employeeIdField) {
+            employeeIdField.addEventListener('input', () => {
+                this.updateDownloadButtonState();
             });
         }
-    }
 
-    navigateToPreviousMonth() {
-        if (this.currentMonth === 0) {
-            this.currentMonth = 11;
-            this.currentYear--;
-        } else {
-            this.currentMonth--;
-        }
-        this.loadMonthlyData();
-        this.renderCalendar();
-        this.updateMonthlyStats();
-        this.clearSelectedDate();
-    }
-
-    navigateToNextMonth() {
-        if (this.currentMonth === 11) {
-            this.currentMonth = 0;
-            this.currentYear++;
-        } else {
-            this.currentMonth++;
-        }
-        this.loadMonthlyData();
-        this.renderCalendar();
-        this.updateMonthlyStats();
-        this.clearSelectedDate();
-    }
-
-    renderCalendar() {
-        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
-                           'July', 'August', 'September', 'October', 'November', 'December'];
-        
-        // Update month display
-        const currentMonthYear = document.getElementById('currentMonthYear');
-        if (currentMonthYear) {
-            currentMonthYear.textContent = `${monthNames[this.currentMonth]} ${this.currentYear}`;
-        }
-
-        // Render calendar dates
-        const calendarDates = document.getElementById('calendarDates');
-        if (!calendarDates) return;
-
-        const firstDay = new Date(this.currentYear, this.currentMonth, 1);
-        const lastDay = new Date(this.currentYear, this.currentMonth + 1, 0);
-        const firstDayOfWeek = firstDay.getDay();
-        const daysInMonth = lastDay.getDate();
-
-        calendarDates.innerHTML = '';
-
-        // Add empty cells for days before the first day of the month
-        for (let i = 0; i < firstDayOfWeek; i++) {
-            const emptyCell = document.createElement('div');
-            emptyCell.className = 'calendar-date other-month';
-            calendarDates.appendChild(emptyCell);
-        }
-
-        // Add days of the month
-        for (let day = 1; day <= daysInMonth; day++) {
-            const dateCell = document.createElement('div');
-            const dateKey = this.formatDateKey(this.currentYear, this.currentMonth, day);
-            const dayData = this.monthlyData[dateKey];
-            const isToday = this.isToday(this.currentYear, this.currentMonth, day);
-            const isWeekend = this.isWeekend(this.currentYear, this.currentMonth, day);
-
-            dateCell.className = 'calendar-date';
-            dateCell.setAttribute('data-date', dateKey);
-            if (isToday) dateCell.classList.add('today');
-            if (isWeekend) dateCell.classList.add('weekend');
-            if (dayData) dateCell.classList.add('has-work');
-
-            dateCell.innerHTML = `
-                <div class="date-number">${day}</div>
-                <div class="date-info">
-                    ${dayData ? `<div class="date-hours">${dayData.totalHours.toFixed(1)}h</div>` : ''}
-                    ${dayData ? `<div class="project-count">${dayData.projects.length}</div>` : ''}
-                </div>
-            `;
-
-            dateCell.addEventListener('click', () => this.selectDate(this.currentYear, this.currentMonth, day));
-            calendarDates.appendChild(dateCell);
-        }
-
-        // Restore selected date if it exists in current month
-        if (this.selectedDate && 
-            this.selectedDate.year === this.currentYear && 
-            this.selectedDate.month === this.currentMonth) {
-            this.updateCalendarSelection();
-        }
-    }
-
-    selectDate(year, month, day) {
-        this.selectedDate = { year, month, day };
-        this.updateCalendarSelection();
-        this.showDailyEntry();
-        this.renderDailyProjects();
-        this.updateExportButtons();
-        console.log('Selected date:', this.selectedDate);
-    }
-
-    updateCalendarSelection() {
-        // Clear all selections
-        document.querySelectorAll('.calendar-date').forEach(cell => {
-            cell.classList.remove('selected');
-        });
-        
-        // Highlight selected date
-        if (this.selectedDate) {
-            const dateKey = this.formatDateKey(this.selectedDate.year, this.selectedDate.month, this.selectedDate.day);
-            const selectedCell = document.querySelector(`[data-date="${dateKey}"]`);
-            if (selectedCell) {
-                selectedCell.classList.add('selected');
-            }
-        }
-    }
-
-    clearSelectedDate() {
-        this.selectedDate = null;
-        document.querySelectorAll('.calendar-date').forEach(cell => {
-            cell.classList.remove('selected');
-        });
-        this.hideDailyEntry();
-        this.updateExportButtons();
-    }
-
-    showDailyEntry() {
-        if (!this.selectedDate) return;
-
-        const entryForm = document.getElementById('entryForm');
-        const selectedDateDisplay = document.getElementById('selectedDateDisplay');
-
-        if (entryForm) {
-            entryForm.classList.remove('hidden');
-        }
-
-        if (selectedDateDisplay) {
-            const dateStr = new Date(this.selectedDate.year, this.selectedDate.month, this.selectedDate.day)
-                .toLocaleDateString('en-US', { 
-                    weekday: 'long', 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric' 
-                });
-            selectedDateDisplay.textContent = dateStr;
-        }
-    }
-
-    hideDailyEntry() {
-        const entryForm = document.getElementById('entryForm');
-        const selectedDateDisplay = document.getElementById('selectedDateDisplay');
-
-        if (entryForm) {
-            entryForm.classList.add('hidden');
-        }
-
-        if (selectedDateDisplay) {
-            selectedDateDisplay.textContent = 'Select a date to log work';
-        }
+        console.log('Event listeners bound successfully');
     }
 
     addProjectEntry() {
@@ -450,74 +452,87 @@ class MonthlyWorkLogTracker {
             return;
         }
 
-        if (!this.selectedDate) {
-            this.showMessage('Please select a date first.', 'error');
-            return;
-        }
-
         const projectId = document.getElementById('projectSelection').value;
-        const subCode = document.getElementById('subCodeSelection').value;
+        const subCodeSelect = document.getElementById('subCodeSelection');
+        const subCode = subCodeSelect.value;
         const hours = parseFloat(document.getElementById('hoursSpent').value);
         const comments = document.getElementById('comments').value.trim();
 
-        console.log('Entry data:', { projectId, subCode, hours, comments });
-
-        // Get project title
+        // Get project title and type
         const projectSelect = document.getElementById('projectSelection');
         const selectedOption = projectSelect.options[projectSelect.selectedIndex];
         const projectTitle = selectedOption.getAttribute('data-title');
+        const entryType = selectedOption.getAttribute('data-type');
 
-        const dateKey = this.formatDateKey(this.selectedDate.year, this.selectedDate.month, this.selectedDate.day);
-
-        // Check for duplicates
-        if (this.isDuplicate(dateKey, projectId, subCode)) {
-            this.showMessage('This project and sub code combination already exists for this date.', 'error');
-            return;
-        }
-
-        // Initialize daily data if doesn't exist
-        if (!this.monthlyData[dateKey]) {
-            this.monthlyData[dateKey] = {
-                projects: [],
-                totalHours: 0
+        // Check if this is a special entry
+        const isSpecialEntry = entryType === 'special';
+        
+        let entry;
+        if (isSpecialEntry) {
+            // Holiday or Leave entry
+            entry = {
+                projectId,
+                projectTitle,
+                subCode: null,
+                chargeCode: 'N/A',
+                hours,
+                comments,
+                entryType: projectId.toLowerCase()
+            };
+        } else {
+            // Regular work entry
+            entry = {
+                projectId,
+                projectTitle,
+                subCode,
+                chargeCode: `${projectId}-${subCode}`,
+                hours,
+                comments,
+                entryType: 'work'
             };
         }
 
-        // Create entry
-        const entry = {
-            projectId,
-            projectTitle,
-            subCode,
-            chargeCode: `${projectId}-${subCode}`,
-            hours,
-            comments
-        };
+        console.log('Entry data:', entry);
 
-        this.monthlyData[dateKey].projects.push(entry);
-        this.monthlyData[dateKey].totalHours += hours;
+        // Check for duplicates
+        if (this.isDuplicate(entry)) {
+            this.showMessage('This entry combination already exists for the selected date.', 'error');
+            return;
+        }
 
-        this.saveMonthlyData();
-        this.saveEmployeeData();
+        // Add entry to monthly logs
+        if (!this.monthlyLogs[this.selectedDate]) {
+            this.monthlyLogs[this.selectedDate] = [];
+        }
+        
+        this.monthlyLogs[this.selectedDate].push(entry);
+        
+        this.updateUI();
         this.clearForm();
-        this.renderCalendar();
-        this.renderDailyProjects();
-        this.updateMonthlyStats();
-        this.updateExportButtons();
-        this.showMessage('Project entry added successfully!', 'success');
+        
+        const entryTypeText = isSpecialEntry ? 'time-off' : 'work';
+        this.showMessage(`${projectTitle} entry added successfully!`, 'success');
         console.log('Entry added successfully:', entry);
     }
 
     validateForm() {
         const employeeId = document.getElementById('employeeId').value.trim();
         const projectId = document.getElementById('projectSelection').value;
-        const subCode = document.getElementById('subCodeSelection').value;
+        const subCodeSelect = document.getElementById('subCodeSelection');
+        const subCode = subCodeSelect.value;
         const hoursValue = document.getElementById('hoursSpent').value;
+        const comments = document.getElementById('comments').value.trim();
 
-        console.log('Validating form:', { employeeId, projectId, subCode, hoursValue });
+        console.log('Validating form:', { employeeId, projectId, subCode, hoursValue, comments });
 
         if (!employeeId) {
             this.showMessage('Employee ID is required.', 'error');
             document.getElementById('employeeId').focus();
+            return false;
+        }
+
+        if (!this.selectedDate) {
+            this.showMessage('Please select a date on the calendar.', 'error');
             return false;
         }
 
@@ -527,9 +542,12 @@ class MonthlyWorkLogTracker {
             return false;
         }
 
-        if (!subCode) {
+        // Check if it's a special entry
+        const isSpecialEntry = this.specialEntryTypes.some(special => special.projectId === projectId);
+        
+        if (!isSpecialEntry && (!subCode || subCodeSelect.disabled)) {
             this.showMessage('Please select a sub code.', 'error');
-            document.getElementById('subCodeSelection').focus();
+            subCodeSelect.focus();
             return false;
         }
 
@@ -539,119 +557,21 @@ class MonthlyWorkLogTracker {
             return false;
         }
 
+        if (isSpecialEntry && !comments) {
+            this.showMessage('Comments are required for Holiday/Leave entries.', 'error');
+            document.getElementById('comments').focus();
+            return false;
+        }
+
         return true;
     }
 
-    isDuplicate(dateKey, projectId, subCode) {
-        if (!this.monthlyData[dateKey]) return false;
-        return this.monthlyData[dateKey].projects.some(entry => 
-            entry.projectId === projectId && entry.subCode === subCode
+    isDuplicate(newEntry) {
+        const dayEntries = this.monthlyLogs[this.selectedDate] || [];
+        return dayEntries.some(entry => 
+            entry.projectId === newEntry.projectId && 
+            entry.subCode === newEntry.subCode
         );
-    }
-
-    renderDailyProjects() {
-        if (!this.selectedDate) return;
-
-        const dateKey = this.formatDateKey(this.selectedDate.year, this.selectedDate.month, this.selectedDate.day);
-        const dayData = this.monthlyData[dateKey];
-
-        const emptyState = document.getElementById('dailyEmptyState');
-        const projectList = document.getElementById('dailyProjectList');
-        const totalHours = document.getElementById('dailyTotalHours');
-
-        if (!dayData || dayData.projects.length === 0) {
-            emptyState?.classList.remove('hidden');
-            projectList?.classList.add('hidden');
-            if (totalHours) totalHours.textContent = '0.00';
-            return;
-        }
-
-        emptyState?.classList.add('hidden');
-        projectList?.classList.remove('hidden');
-
-        if (totalHours) {
-            totalHours.textContent = dayData.totalHours.toFixed(2);
-        }
-
-        if (projectList) {
-            projectList.innerHTML = dayData.projects.map((project, index) => `
-                <div class="project-item">
-                    <div class="project-item-header">
-                        <div>
-                            <div class="project-title">${project.projectId} - ${project.projectTitle}</div>
-                            <div class="project-details">Sub Code: ${project.subCode} | Charge: ${project.chargeCode}</div>
-                        </div>
-                        <div class="project-hours">${project.hours.toFixed(2)}h</div>
-                    </div>
-                    ${project.comments ? `<div class="project-comments">"${project.comments}"</div>` : ''}
-                    <div class="project-actions">
-                        <button type="button" class="btn-delete" onclick="tracker.removeProjectEntry('${dateKey}', ${index})">
-                            Delete
-                        </button>
-                    </div>
-                </div>
-            `).join('');
-        }
-    }
-
-    removeProjectEntry(dateKey, index) {
-        if (!confirm('Are you sure you want to delete this entry?')) return;
-
-        const dayData = this.monthlyData[dateKey];
-        if (!dayData || !dayData.projects[index]) return;
-
-        const removedProject = dayData.projects.splice(index, 1)[0];
-        dayData.totalHours -= removedProject.hours;
-
-        if (dayData.projects.length === 0) {
-            delete this.monthlyData[dateKey];
-        }
-
-        this.saveMonthlyData();
-        this.renderCalendar();
-        this.renderDailyProjects();
-        this.updateMonthlyStats();
-        this.showMessage('Project entry deleted.', 'success');
-    }
-
-    updateMonthlyStats() {
-        const stats = this.calculateMonthlyStats();
-        
-        document.getElementById('totalDaysWorked').textContent = stats.totalDaysWorked;
-        document.getElementById('totalHoursMonth').textContent = stats.totalHours.toFixed(2);
-        document.getElementById('averageHours').textContent = stats.averageHours.toFixed(2);
-        document.getElementById('totalProjects').textContent = stats.totalProjectEntries;
-        document.getElementById('uniqueProjects').textContent = stats.uniqueProjects;
-        document.getElementById('monthProgress').textContent = `${stats.progressPercentage.toFixed(1)}%`;
-    }
-
-    calculateMonthlyStats() {
-        const daysInMonth = new Date(this.currentYear, this.currentMonth + 1, 0).getDate();
-        let totalDaysWorked = 0;
-        let totalHours = 0;
-        let totalProjectEntries = 0;
-        const uniqueProjectsSet = new Set();
-
-        Object.values(this.monthlyData).forEach(dayData => {
-            if (dayData.projects.length > 0) {
-                totalDaysWorked++;
-                totalHours += dayData.totalHours;
-                totalProjectEntries += dayData.projects.length;
-                
-                dayData.projects.forEach(project => {
-                    uniqueProjectsSet.add(`${project.projectId}-${project.projectTitle}`);
-                });
-            }
-        });
-
-        return {
-            totalDaysWorked,
-            totalHours,
-            averageHours: totalDaysWorked > 0 ? totalHours / totalDaysWorked : 0,
-            totalProjectEntries,
-            uniqueProjects: uniqueProjectsSet.size,
-            progressPercentage: (totalDaysWorked / daysInMonth) * 100
-        };
     }
 
     clearForm() {
@@ -659,20 +579,193 @@ class MonthlyWorkLogTracker {
         
         const projectSelect = document.getElementById('projectSelection');
         const subCodeSelect = document.getElementById('subCodeSelection');
+        const subCodeGroup = document.getElementById('subCodeGroup');
         const chargeCode = document.getElementById('chargeCode');
         const hoursSpent = document.getElementById('hoursSpent');
         const comments = document.getElementById('comments');
+        const requiredIndicator = document.getElementById('commentsRequired');
 
         if (projectSelect) projectSelect.value = '';
         if (subCodeSelect) {
             subCodeSelect.innerHTML = '<option value="">Select sub code...</option>';
             subCodeSelect.disabled = true;
+            subCodeSelect.setAttribute('required', 'required');
         }
-        if (chargeCode) chargeCode.value = '';
+        if (subCodeGroup) subCodeGroup.classList.remove('hidden');
+        if (chargeCode) {
+            chargeCode.value = '';
+            chargeCode.classList.remove('na-field');
+        }
         if (hoursSpent) hoursSpent.value = '';
-        if (comments) comments.value = '';
+        if (comments) {
+            comments.value = '';
+            comments.removeAttribute('required');
+            comments.placeholder = 'Enter any additional notes or comments...';
+        }
+        if (requiredIndicator) requiredIndicator.classList.add('hidden');
         
         this.updateCharacterCount(0);
+    }
+
+    updateUI() {
+        this.renderCalendar();
+        this.updateDailyEntries();
+        this.updateMonthlyUI();
+        this.updateDownloadButtonState();
+    }
+
+    updateDailyEntries() {
+        const emptyState = document.getElementById('emptyState');
+        const projectTable = document.getElementById('projectTable');
+        const tableBody = document.getElementById('projectTableBody');
+
+        if (!emptyState || !projectTable || !tableBody) {
+            console.error('Required table elements not found');
+            return;
+        }
+
+        const dayEntries = this.selectedDate ? this.monthlyLogs[this.selectedDate] || [] : [];
+
+        if (dayEntries.length === 0) {
+            emptyState.classList.remove('hidden');
+            projectTable.classList.add('hidden');
+            this.updateDailySummary(0, 0);
+            return;
+        }
+
+        emptyState.classList.add('hidden');
+        projectTable.classList.remove('hidden');
+
+        tableBody.innerHTML = '';
+
+        dayEntries.forEach((entry, index) => {
+            const row = document.createElement('tr');
+            const entryTypeDisplay = entry.entryType.charAt(0).toUpperCase() + entry.entryType.slice(1);
+            
+            row.innerHTML = `
+                <td><span class="entry-type ${entry.entryType}">${entryTypeDisplay}</span></td>
+                <td>${entry.projectId}</td>
+                <td>${entry.projectTitle}</td>
+                <td>${entry.subCode || '-'}</td>
+                <td><span class="charge-code">${entry.chargeCode}</span></td>
+                <td class="hours-cell">${entry.hours.toFixed(2)}</td>
+                <td class="comments-cell">${entry.comments || '-'}</td>
+                <td>
+                    <button type="button" class="btn-delete" onclick="tracker.removeEntry(${index})">
+                        Delete
+                    </button>
+                </td>
+            `;
+            tableBody.appendChild(row);
+        });
+
+        // Update daily summary
+        const totalHours = dayEntries.reduce((sum, entry) => sum + entry.hours, 0);
+        const workHours = dayEntries
+            .filter(entry => entry.entryType === 'work')
+            .reduce((sum, entry) => sum + entry.hours, 0);
+        
+        this.updateDailySummary(totalHours, workHours);
+    }
+
+    updateDailySummary(totalHours, workHours) {
+        const totalElement = document.getElementById('totalHours');
+        const workElement = document.getElementById('workHours');
+        
+        if (totalElement) totalElement.textContent = totalHours.toFixed(2);
+        if (workElement) workElement.textContent = workHours.toFixed(2);
+    }
+
+    updateMonthlyUI() {
+        // Calculate monthly statistics
+        const stats = this.calculateMonthlyStats();
+        
+        // Update summary cards
+        const elements = {
+            'daysLogged': stats.daysLogged,
+            'workingDays': stats.workingDays,
+            'holidayDays': stats.holidayDays,
+            'leaveDays': stats.leaveDays,
+            'monthlyTotalHours': stats.totalHours.toFixed(2),
+            'productiveHours': stats.productiveHours.toFixed(2)
+        };
+        
+        Object.entries(elements).forEach(([id, value]) => {
+            const element = document.getElementById(id);
+            if (element) element.textContent = value;
+        });
+    }
+
+    calculateMonthlyStats() {
+        const currentMonthEntries = Object.keys(this.monthlyLogs)
+            .filter(dateKey => dateKey.startsWith(this.currentMonth))
+            .map(dateKey => this.monthlyLogs[dateKey])
+            .flat();
+
+        const dayCount = Object.keys(this.monthlyLogs)
+            .filter(dateKey => dateKey.startsWith(this.currentMonth))
+            .length;
+
+        const workDays = new Set();
+        const holidayDays = new Set();
+        const leaveDays = new Set();
+
+        Object.keys(this.monthlyLogs)
+            .filter(dateKey => dateKey.startsWith(this.currentMonth))
+            .forEach(dateKey => {
+                const dayEntries = this.monthlyLogs[dateKey];
+                const entryTypes = dayEntries.map(entry => entry.entryType);
+                
+                if (entryTypes.includes('work')) workDays.add(dateKey);
+                if (entryTypes.includes('holiday')) holidayDays.add(dateKey);
+                if (entryTypes.includes('leave')) leaveDays.add(dateKey);
+            });
+
+        const totalHours = currentMonthEntries.reduce((sum, entry) => sum + entry.hours, 0);
+        const productiveHours = currentMonthEntries
+            .filter(entry => entry.entryType === 'work')
+            .reduce((sum, entry) => sum + entry.hours, 0);
+
+        return {
+            daysLogged: dayCount,
+            workingDays: workDays.size,
+            holidayDays: holidayDays.size,
+            leaveDays: leaveDays.size,
+            totalHours,
+            productiveHours
+        };
+    }
+
+    removeEntry(index) {
+        if (!this.selectedDate || !confirm('Are you sure you want to delete this entry?')) {
+            return;
+        }
+
+        const dayEntries = this.monthlyLogs[this.selectedDate];
+        if (dayEntries && dayEntries[index]) {
+            dayEntries.splice(index, 1);
+            
+            // Remove the date key if no entries remain
+            if (dayEntries.length === 0) {
+                delete this.monthlyLogs[this.selectedDate];
+            }
+            
+            this.updateUI();
+            this.showMessage('Entry deleted successfully.', 'success');
+        }
+    }
+
+    updateDownloadButtonState() {
+        const employeeId = document.getElementById('employeeId').value.trim();
+        const downloadBtn = document.getElementById('downloadExcel');
+        
+        const hasEntries = Object.keys(this.monthlyLogs)
+            .filter(dateKey => dateKey.startsWith(this.currentMonth))
+            .length > 0;
+        
+        if (downloadBtn) {
+            downloadBtn.disabled = !employeeId || !hasEntries;
+        }
     }
 
     updateCharacterCount(count) {
@@ -682,244 +775,176 @@ class MonthlyWorkLogTracker {
         }
     }
 
-    updateExportButtons() {
+    downloadExcel() {
         const employeeId = document.getElementById('employeeId').value.trim();
-        const hasData = Object.keys(this.monthlyData).length > 0;
-        
-        const exportDailyBtn = document.getElementById('exportDaily');
-        const exportMonthBtn = document.getElementById('exportMonth');
-        const exportRangeBtn = document.getElementById('exportRange');
-        
-        if (exportDailyBtn) {
-            exportDailyBtn.disabled = !employeeId || !this.selectedDate;
-        }
-        if (exportMonthBtn) {
-            exportMonthBtn.disabled = !employeeId || !hasData;
-        }
-        if (exportRangeBtn) {
-            exportRangeBtn.disabled = !employeeId || !hasData;
-        }
-    }
+        const monthYear = this.currentMonth;
 
-    updateUI() {
-        this.renderCalendar();
-        this.updateMonthlyStats();
-        this.updateExportButtons();
-    }
+        const monthlyEntries = Object.keys(this.monthlyLogs)
+            .filter(dateKey => dateKey.startsWith(monthYear))
+            .sort();
 
-    // Export Functions
-    exportDaily() {
-        if (!this.selectedDate) {
-            this.showMessage('Please select a date to export.', 'error');
-            return;
-        }
-
-        const employeeId = document.getElementById('employeeId').value.trim();
-        const dateKey = this.formatDateKey(this.selectedDate.year, this.selectedDate.month, this.selectedDate.day);
-        const dayData = this.monthlyData[dateKey];
-
-        if (!dayData) {
-            this.showMessage('No data found for selected date.', 'error');
+        if (!employeeId || monthlyEntries.length === 0) {
+            this.showMessage('Cannot export: Missing employee ID or no entries for the selected month.', 'error');
             return;
         }
 
         try {
             const wb = XLSX.utils.book_new();
-            const data = this.prepareDailyExportData(employeeId, dateKey, dayData);
-            const ws = XLSX.utils.aoa_to_sheet(data);
-            
-            ws['!cols'] = [
-                { wch: 15 }, { wch: 20 }, { wch: 10 }, 
-                { wch: 20 }, { wch: 8 }, { wch: 30 }
-            ];
 
-            XLSX.utils.book_append_sheet(wb, ws, 'Daily Log');
+            // Create Summary Sheet
+            this.createSummarySheet(wb, employeeId, monthYear);
             
-            const filename = `Daily_Log_${employeeId}_${dateKey}.xlsx`;
+            // Create Daily Details Sheet
+            this.createDailyDetailsSheet(wb, monthlyEntries);
+            
+            // Create Project Summary Sheet
+            this.createProjectSummarySheet(wb, monthlyEntries);
+
+            // Generate filename
+            const [year, month] = monthYear.split('-');
+            const monthName = new Date(year, month - 1).toLocaleDateString('en-US', { month: 'long' });
+            const filename = `Monthly_Log_${employeeId}_${monthName}_${year}.xlsx`;
+
+            // Download file
             XLSX.writeFile(wb, filename);
-            
-            this.showMessage(`Daily export "${filename}" downloaded successfully!`, 'success');
+
+            this.showMessage(`Excel report "${filename}" downloaded successfully!`, 'success');
+
         } catch (error) {
-            console.error('Export error:', error);
-            this.showMessage('Error generating export file.', 'error');
+            console.error('Excel export error:', error);
+            this.showMessage('Error generating Excel file. Please try again.', 'error');
         }
     }
 
-    exportMonthly() {
-        const employeeId = document.getElementById('employeeId').value.trim();
-        const monthKey = `${this.currentYear}-${String(this.currentMonth + 1).padStart(2, '0')}`;
-
-        try {
-            const wb = XLSX.utils.book_new();
-
-            // Summary Sheet
-            const summaryData = this.prepareMonthlyySummaryData(employeeId, monthKey);
-            const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
-            XLSX.utils.book_append_sheet(wb, summaryWs, 'Monthly Summary');
-
-            // Daily Details Sheet
-            const dailyData = this.prepareDailyDetailsData();
-            const dailyWs = XLSX.utils.aoa_to_sheet(dailyData);
-            dailyWs['!cols'] = [
-                { wch: 12 }, { wch: 15 }, { wch: 20 }, 
-                { wch: 10 }, { wch: 20 }, { wch: 8 }, { wch: 30 }
-            ];
-            XLSX.utils.book_append_sheet(wb, dailyWs, 'Daily Details');
-
-            // Project Summary Sheet
-            const projectData = this.prepareProjectSummaryData();
-            const projectWs = XLSX.utils.aoa_to_sheet(projectData);
-            XLSX.utils.book_append_sheet(wb, projectWs, 'Project Summary');
-
-            const filename = `Monthly_Log_${employeeId}_${monthKey}.xlsx`;
-            XLSX.writeFile(wb, filename);
-            
-            this.showMessage(`Monthly report "${filename}" downloaded successfully!`, 'success');
-        } catch (error) {
-            console.error('Export error:', error);
-            this.showMessage('Error generating monthly report.', 'error');
-        }
-    }
-
-    showDateRangeModal() {
-        document.getElementById('dateRangeModal').classList.remove('hidden');
-    }
-
-    hideDateRangeModal() {
-        document.getElementById('dateRangeModal').classList.add('hidden');
-    }
-
-    exportDateRange() {
-        const startDate = document.getElementById('startDate').value;
-        const endDate = document.getElementById('endDate').value;
-
-        if (!startDate || !endDate) {
-            this.showMessage('Please select both start and end dates.', 'error');
-            return;
-        }
-
-        if (new Date(startDate) > new Date(endDate)) {
-            this.showMessage('Start date must be before end date.', 'error');
-            return;
-        }
-
-        this.showMessage('Date range export functionality will be implemented in a future version.', 'info');
-        this.hideDateRangeModal();
-    }
-
-    // Helper Functions
-    formatDateKey(year, month, day) {
-        return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    }
-
-    isToday(year, month, day) {
-        const today = new Date();
-        return year === today.getFullYear() && 
-               month === today.getMonth() && 
-               day === today.getDate();
-    }
-
-    isWeekend(year, month, day) {
-        const date = new Date(year, month, day);
-        return date.getDay() === 0 || date.getDay() === 6;
-    }
-
-    prepareDailyExportData(employeeId, dateKey, dayData) {
-        const data = [];
-        data.push(['Employee ID:', employeeId]);
-        data.push(['Date:', dateKey]);
-        data.push(['Generated:', new Date().toLocaleString()]);
-        data.push([]);
-        data.push(['Project ID', 'Project Title', 'Sub Code', 'Charge Code', 'Hours', 'Comments']);
-
-        dayData.projects.forEach(project => {
-            data.push([
-                project.projectId,
-                project.projectTitle,
-                project.subCode,
-                project.chargeCode,
-                project.hours,
-                project.comments || ''
-            ]);
-        });
-
-        data.push([]);
-        data.push(['', '', '', 'Total Hours:', dayData.totalHours.toFixed(2), '']);
-
-        return data;
-    }
-
-    prepareMonthlyySummaryData(employeeId, monthKey) {
+    createSummarySheet(wb, employeeId, monthYear) {
         const stats = this.calculateMonthlyStats();
-        const data = [];
+        const [year, month] = monthYear.split('-');
+        const monthName = new Date(year, month - 1).toLocaleDateString('en-US', { month: 'long' });
         
-        data.push(['Monthly Work Log Summary']);
-        data.push([]);
-        data.push(['Employee ID:', employeeId]);
-        data.push(['Month:', monthKey]);
-        data.push(['Generated:', new Date().toLocaleString()]);
-        data.push([]);
-        data.push(['Statistics']);
-        data.push(['Total Days Worked:', stats.totalDaysWorked]);
-        data.push(['Total Hours:', stats.totalHours.toFixed(2)]);
-        data.push(['Average Hours per Day:', stats.averageHours.toFixed(2)]);
-        data.push(['Total Project Entries:', stats.totalProjectEntries]);
-        data.push(['Unique Projects:', stats.uniqueProjects]);
-        data.push(['Month Progress:', `${stats.progressPercentage.toFixed(1)}%`]);
+        const summaryData = [
+            ['Monthly Work Log Summary'],
+            [''],
+            ['Employee ID:', employeeId],
+            ['Month/Year:', `${monthName} ${year}`],
+            ['Report Generated:', new Date().toLocaleString()],
+            [''],
+            ['MONTHLY STATISTICS'],
+            ['Total Days Logged', stats.daysLogged],
+            ['Working Days', stats.workingDays],
+            ['Holiday Days', stats.holidayDays],
+            ['Leave Days', stats.leaveDays],
+            [''],
+            ['HOURS BREAKDOWN'],
+            ['Total Hours Logged', stats.totalHours.toFixed(2)],
+            ['Productive Work Hours', stats.productiveHours.toFixed(2)],
+            ['Non-productive Hours', (stats.totalHours - stats.productiveHours).toFixed(2)],
+            [''],
+            ['EFFICIENCY METRICS'],
+            ['Work vs Time-off Ratio', stats.totalHours > 0 ? ((stats.productiveHours / stats.totalHours) * 100).toFixed(1) + '%' : '0%'],
+            ['Average Work Hours/Day', stats.workingDays > 0 ? (stats.productiveHours / stats.workingDays).toFixed(2) : '0.00']
+        ];
 
-        return data;
+        const ws = XLSX.utils.aoa_to_sheet(summaryData);
+        ws['!cols'] = [{ wch: 25 }, { wch: 15 }];
+        XLSX.utils.book_append_sheet(wb, ws, 'Monthly Summary');
     }
 
-    prepareDailyDetailsData() {
-        const data = [];
-        data.push(['Date', 'Project ID', 'Project Title', 'Sub Code', 'Charge Code', 'Hours', 'Comments']);
+    createDailyDetailsSheet(wb, monthlyEntries) {
+        const detailsData = [
+            ['Date', 'Project ID', 'Project Title', 'Sub Code', 'Charge Code', 'Hours', 'Comments', 'Entry Type']
+        ];
 
-        Object.keys(this.monthlyData).sort().forEach(dateKey => {
-            const dayData = this.monthlyData[dateKey];
-            dayData.projects.forEach(project => {
-                data.push([
+        monthlyEntries.forEach(dateKey => {
+            const dayEntries = this.monthlyLogs[dateKey];
+            dayEntries.forEach(entry => {
+                detailsData.push([
                     dateKey,
-                    project.projectId,
-                    project.projectTitle,
-                    project.subCode,
-                    project.chargeCode,
-                    project.hours,
-                    project.comments || ''
+                    entry.projectId,
+                    entry.projectTitle,
+                    entry.subCode || 'N/A',
+                    entry.chargeCode,
+                    entry.hours,
+                    entry.comments || '',
+                    entry.entryType.toUpperCase()
                 ]);
             });
         });
 
-        return data;
+        const ws = XLSX.utils.aoa_to_sheet(detailsData);
+        ws['!cols'] = [
+            { wch: 12 }, // Date
+            { wch: 18 }, // Project ID
+            { wch: 20 }, // Project Title
+            { wch: 10 }, // Sub Code
+            { wch: 20 }, // Charge Code
+            { wch: 8 },  // Hours
+            { wch: 30 }, // Comments
+            { wch: 12 }  // Entry Type
+        ];
+        XLSX.utils.book_append_sheet(wb, ws, 'Daily Details');
     }
 
-    prepareProjectSummaryData() {
-        const projectTotals = {};
-        
-        Object.values(this.monthlyData).forEach(dayData => {
-            dayData.projects.forEach(project => {
-                const key = `${project.projectId} - ${project.projectTitle}`;
-                if (!projectTotals[key]) {
-                    projectTotals[key] = { hours: 0, days: new Set() };
+    createProjectSummarySheet(wb, monthlyEntries) {
+        const projectSummary = {};
+        const timeOffSummary = { holiday: 0, leave: 0 };
+
+        // Aggregate project data
+        monthlyEntries.forEach(dateKey => {
+            const dayEntries = this.monthlyLogs[dateKey];
+            dayEntries.forEach(entry => {
+                if (entry.entryType === 'work') {
+                    const key = `${entry.projectId}-${entry.subCode}`;
+                    if (!projectSummary[key]) {
+                        projectSummary[key] = {
+                            projectId: entry.projectId,
+                            projectTitle: entry.projectTitle,
+                            subCode: entry.subCode,
+                            chargeCode: entry.chargeCode,
+                            totalHours: 0,
+                            days: new Set()
+                        };
+                    }
+                    projectSummary[key].totalHours += entry.hours;
+                    projectSummary[key].days.add(dateKey);
+                } else {
+                    timeOffSummary[entry.entryType] += entry.hours;
                 }
-                projectTotals[key].hours += project.hours;
-                projectTotals[key].days.add(project.projectId);
             });
         });
 
-        const data = [];
-        data.push(['Project', 'Total Hours', 'Days Worked', 'Average Hours/Day']);
+        const summaryData = [
+            ['WORK PROJECTS SUMMARY'],
+            ['Project ID', 'Project Title', 'Sub Code', 'Charge Code', 'Total Hours', 'Days Worked'],
+            ['']
+        ];
 
-        Object.entries(projectTotals).forEach(([project, totals]) => {
-            const daysWorked = totals.days.size;
-            data.push([
-                project,
-                totals.hours.toFixed(2),
-                daysWorked,
-                (totals.hours / daysWorked).toFixed(2)
+        Object.values(projectSummary).forEach(project => {
+            summaryData.push([
+                project.projectId,
+                project.projectTitle,
+                project.subCode,
+                project.chargeCode,
+                project.totalHours.toFixed(2),
+                project.days.size
             ]);
         });
 
-        return data;
+        summaryData.push(['']);
+        summaryData.push(['TIME-OFF SUMMARY']);
+        summaryData.push(['Type', 'Total Hours']);
+        summaryData.push(['Holiday', timeOffSummary.holiday.toFixed(2)]);
+        summaryData.push(['Leave', timeOffSummary.leave.toFixed(2)]);
+
+        const ws = XLSX.utils.aoa_to_sheet(summaryData);
+        ws['!cols'] = [
+            { wch: 20 }, // Project ID
+            { wch: 20 }, // Project Title
+            { wch: 10 }, // Sub Code
+            { wch: 25 }, // Charge Code
+            { wch: 12 }, // Total Hours
+            { wch: 12 }  // Days Worked
+        ];
+        XLSX.utils.book_append_sheet(wb, ws, 'Project Summary');
     }
 
     showMessage(text, type) {
@@ -932,12 +957,14 @@ class MonthlyWorkLogTracker {
 
         container.appendChild(message);
 
+        // Auto-remove after 5 seconds
         setTimeout(() => {
             if (message.parentNode) {
                 message.parentNode.removeChild(message);
             }
         }, 5000);
 
+        // Remove on click
         message.addEventListener('click', () => {
             if (message.parentNode) {
                 message.parentNode.removeChild(message);
@@ -948,30 +975,27 @@ class MonthlyWorkLogTracker {
 
 // Initialize the application when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('DOM loaded, initializing Monthly Work Log Tracker...');
-    window.tracker = new MonthlyWorkLogTracker();
+    console.log('DOM loaded, initializing enhanced tracker...');
+    window.tracker = new EnhancedDailyLogTracker();
     window.tracker.init();
 });
 
 // Keyboard shortcuts
 document.addEventListener('keydown', (e) => {
+    // Ctrl/Cmd + Enter to add entry
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         e.preventDefault();
         const form = document.getElementById('projectForm');
-        if (form && window.tracker?.selectedDate) {
+        if (form) {
             form.dispatchEvent(new Event('submit'));
         }
     }
     
+    // Escape to clear form
     if (e.key === 'Escape') {
         e.preventDefault();
         if (window.tracker) {
-            const modal = document.getElementById('dateRangeModal');
-            if (modal && !modal.classList.contains('hidden')) {
-                window.tracker.hideDateRangeModal();
-            } else {
-                window.tracker.clearForm();
-            }
+            window.tracker.clearForm();
         }
     }
 });
