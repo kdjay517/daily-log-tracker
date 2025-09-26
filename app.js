@@ -8,6 +8,8 @@ class MonthlyWorkLogTracker {
             { "projectId": "WV-1112-4152", "subCode": "1010", "projectTitle": "AS_Strategy" },
             { "projectId": "WV-1112-4152", "subCode": "1020", "projectTitle": "AS_Strategy" },
             { "projectId": "RW-1173-9573P00303", "subCode": "0010", "projectTitle": "RW Tracking" }
+            { "projectId": " WV-1137-D75B1-C4285-08-03", "subCode": "1250", "projectTitle": "MERCIA_INSIGNIA_ElectronicController_Mil" }
+            { "projectId": " WV-1116-4306", "subCode": "0020", "projectTitle": "SensorLess_Controller_Demo" }
         ];
 
         // Special entry types
