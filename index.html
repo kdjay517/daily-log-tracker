@@ -13,15 +13,14 @@
         import { getFirestore } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
         
         // Firebase configuration (demo config - replace with actual)
-const firebaseConfig = {
-  apiKey: "AIzaSyCSgpmPlzhSRzt28vialRTM75G7hXFCshk",
-  authDomain: "monthly-work-tracker.firebaseapp.com",
-  projectId: "monthly-work-tracker",
-  storageBucket: "monthly-work-tracker.firebasestorage.app",
-  messagingSenderId: "779148126043",
-  appId: "1:779148126043:web:35715072fb0562c4a41c7e",
-  measurementId: "G-V4H20Z78Q1"
-};
+        const firebaseConfig = {
+            apiKey: "demo-api-key",
+            authDomain: "monthly-work-tracker.firebaseapp.com",
+            projectId: "monthly-work-tracker",
+            storageBucket: "monthly-work-tracker.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "demo-app-id"
+        };
         
         window.firebaseApp = initializeApp(firebaseConfig);
         window.auth = getAuth(window.firebaseApp);
